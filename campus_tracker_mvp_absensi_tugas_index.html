@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campus Tracker – Absensi & Tugas (MVP)</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #121a2b;
+      --muted: #9db2cf;
+      --text: #e9f0ff;
+      --accent: #4ea1ff;
+      --good: #27c281;
+      --warn: #ffb020;
+      --bad: #ff5d5d;
+      --ring: rgba(78,161,255,.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Noto Sans", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    a { color: var(--accent); text-decoration: none; }
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom: 16px; }
+    .title { font-weight: 700; letter-spacing:.3px; }
+    .title span { color: var(--accent); }
+    .toolbar { display:flex; flex-wrap: wrap; gap:8px; }
+    .btn { background: #1a243a; border: 1px solid #223051; color: var(--text); padding: 10px 14px; border-radius: 12px; cursor: pointer; transition:.15s; font-weight:600; }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 3px var(--ring); }
+    .btn.secondary { background: transparent; }
+    .btn.good { border-color: #1d6d4f; background: #14392c; }
+    .btn.warn { border-color: #6d5a1d; background: #3a3314; }
+    .btn.bad  { border-color: #6d1d1d; background: #3a1414; }
+
+    .tabs { display:flex; gap:8px; background: #0e1627; padding:8px; border-radius: 14px; margin: 16px 0; border:1px solid #223051; }
+    .tab-btn { flex:1; padding:10px 12px; border-radius: 10px; text-align:center; background:#121a2b; border:1px solid #223051; color:var(--muted); cursor:pointer; font-weight:700; }
+    .tab-btn.active { background: #1a243a; color:var(--text); box-shadow: inset 0 0 0 2px var(--ring); }
+
+    .grid { display:grid; gap:16px; }
+    @media(min-width: 900px){ .grid.cols-2 { grid-template-columns: 1fr 1fr; } }
+
+    .card { background: var(--card); border:1px solid #223051; border-radius: 16px; padding:16px; }
+    .card h3 { margin: 0 0 8px; font-size: 16px; letter-spacing:.2px; color: var(--muted); }
+
+    .row { display:grid; gap:10px; }
+    @media(min-width:700px){ .row.cols-4 { grid-template-columns: 1.2fr 1fr 1fr 1fr; } .row.cols-3 { grid-template-columns: 1fr 1fr 1fr; } .row.cols-2 { grid-template-columns: 1fr 1fr; } }
+
+    label { display:block; font-size: 12px; color: var(--muted); margin-bottom:6px; }
+    input, select, textarea { width:100%; background: #0f1728; color: var(--text); border:1px solid #223051; border-radius: 12px; padding:10px 12px; outline:none; }
+    input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px var(--ring); }
+    textarea { min-height: 70px; resize: vertical; }
+
+    table { width:100%; border-collapse: collapse; font-size:14px; }
+    th, td { padding: 10px 8px; border-bottom:1px dashed #253451; vertical-align: top; }
+    th { text-align:left; color: var(--muted); font-weight:700; }
+    tr:hover td { background: #111a2d; }
+    .status { font-weight:700; padding: 4px 10px; border-radius: 999px; border:1px solid #223051; display:inline-block; }
+    .status.HADIR { background:#0f2e27; border-color:#144a39; color:#9af0c8; }
+    .status.KOSONG { background:#2b240f; border-color:#5b4b1a; color:#ffe2a6; }
+    .status.TIDAK_HADIR { background:#2e1414; border-color:#5b1e1e; color:#ffb3b3; }
+
+    .chip { display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid #223051; color:var(--muted); font-weight:700; }
+    .chip.good { color:#9af0c8; border-color:#144a39; background:#0f2e27; }
+    .chip.warn { color:#ffe2a6; border-color:#5b4b1a; background:#2b240f; }
+    .chip.bad { color:#ffb3b3; border-color:#5b1e1e; background:#2e1414; }
+
+    .flex { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .right { margin-left:auto; }
+
+    .muted { color: var(--muted); font-size: 12px; }
+    .small { font-size: 12px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#0f1728; border:1px solid #223051; border-bottom-width:3px; padding: 2px 6px; border-radius:6px; }
+
+    .section { display:none; }
+    .section.active { display:block; }
+
+    .overdue { font-weight:700; }
+
+    @media print {
+      body { background:#fff; color:#000; }
+      .no-print { display:none !important; }
+      .card { border:1px solid #ccc; }
+      .status, .chip { border:1px solid #999 !important; color:#000 !important; background:#fff !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <div class="title">🚀 <span>Campus Tracker</span> — Absensi & Tugas</div>
+        <div class="muted small">Offline-first • LocalStorage • Ekspor/Impor • Rekap semester</div>
+      </div>
+      <div class="toolbar no-print">
+        <button id="btnExportJSON" class="btn">Export JSON</button>
+        <button id="btnExportCSVAll" class="btn secondary">Export CSV (Absensi & Tugas)</button>
+        <label class="btn secondary" for="importFile" style="cursor:pointer;">Import JSON/CSV</label>
+        <input id="importFile" type="file" accept=".json,.csv" style="display:none" />
+        <button id="btnPrint" class="btn secondary">Print Rekap</button>
+        <button id="btnReset" class="btn bad">Reset Semua Data</button>
+      </div>
+    </header>
+
+    <nav class="tabs no-print">
+      <button class="tab-btn active" data-tab="absensi">Absensi</button>
+      <button class="tab-btn" data-tab="tugas">Tugas</button>
+      <button class="tab-btn" data-tab="mataKuliah">Mata Kuliah</button>
+    </nav>
+
+    <!-- ABSENSI -->
+    <section id="absensi" class="section active">
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Tambah Entri Absensi</h3>
+          <div class="row cols-2">
+            <div>
+              <label for="attCourse">Mata Kuliah</label>
+              <select id="attCourse"></select>
+            </div>
+            <div>
+              <label for="attDate">Tanggal</label>
+              <input type="date" id="attDate" />
+            </div>
+          </div>
+          <div class="row cols-3" style="margin-top:10px;">
+            <div>
+              <label>Status</label>
+              <select id="attStatus">
+                <option value="HADIR">Hadir</option>
+                <option value="KOSONG">Kosong</option>
+                <option value="TIDAK_HADIR">Tidak Hadir</option>
+              </select>
+            </div>
+            <div class="col-span-2">
+              <label for="attNote">Catatan (opsional)</label>
+              <input id="attNote" placeholder="Misal: Sakit, dosen rapat, dsb." />
+            </div>
+          </div>
+          <div class="flex" style="margin-top:12px;">
+            <button id="btnAddAttendance" class="btn good">Simpan Absensi (Alt+S)</button>
+            <div class="muted small">Duplikat (MK+Tanggal) akan ditanya untuk update</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Rekap Absensi</h3>
+          <div class="row cols-3">
+            <div class="chip">Total Sesi: <span id="attTotal">0</span></div>
+            <div class="chip good">Hadir: <span id="attHadir">0</span></div>
+            <div class="chip warn">Kosong: <span id="attKosong">0</span></div>
+          </div>
+          <div class="row cols-3" style="margin-top:8px;">
+            <div class="chip bad">Tidak Hadir: <span id="attTH">0</span></div>
+            <div class="chip">Efektif: <span id="attEfektif">0</span></div>
+            <div class="chip">% Kehadiran: <span id="attPercent">0%</span></div>
+          </div>
+          <div class="row cols-2" style="margin-top:12px;">
+            <div>
+              <label for="attFilterCourse">Filter Mata Kuliah</label>
+              <select id="attFilterCourse"></select>
+            </div>
+            <div>
+              <label for="attFilterRange">Range Tanggal</label>
+              <input type="month" id="attFilterRange" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="flex">
+          <h3>Riwayat Absensi</h3>
+          <div class="right flex no-print">
+            <button id="btnExportCSVAttendance" class="btn secondary">Export CSV</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:20%">Mata Kuliah</th>
+              <th style="width:14%">Tanggal</th>
+              <th style="width:18%">Status</th>
+              <th>Catatan</th>
+              <th class="no-print" style="width:90px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="attTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TUGAS -->
+    <section id="tugas" class="section">
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Tambah Tugas</h3>
+          <div class="row cols-2">
+            <div>
+              <label for="taskCourse">Mata Kuliah</label>
+              <select id="taskCourse"></select>
+            </div>
+            <div>
+              <label for="taskDeadline">Deadline</label>
+              <input type="date" id="taskDeadline" />
+            </div>
+          </div>
+          <div class="row cols-2" style="margin-top:10px;">
+            <div>
+              <label for="taskTitle">Judul Tugas</label>
+              <input id="taskTitle" placeholder="Contoh: Bab 3, Tugas ERD, dll" />
+            </div>
+            <div>
+              <label for="taskStatus">Status</label>
+              <select id="taskStatus">
+                <option value="BELUM">Belum</option>
+                <option value="SELESAI">Selesai</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex" style="margin-top:12px;">
+            <button id="btnAddTask" class="btn good">Tambah Tugas</button>
+            <div class="muted small">Tugas akan diurutkan berdasarkan deadline terdekat</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Rekap Tugas</h3>
+          <div class="row cols-4">
+            <div class="chip">Total: <span id="tTotal">0</span></div>
+            <div class="chip good">Selesai: <span id="tDone">0</span></div>
+            <div class="chip">Belum: <span id="tOpen">0</span></div>
+            <div class="chip bad">Overdue: <span id="tOverdue">0</span></div>
+          </div>
+          <div class="row cols-2" style="margin-top:12px;">
+            <div>
+              <label for="taskFilterCourse">Filter Mata Kuliah</label>
+              <select id="taskFilterCourse"></select>
+            </div>
+            <div>
+              <label for="taskFilterStatus">Filter Status</label>
+              <select id="taskFilterStatus">
+                <option value="ALL">Semua</option>
+                <option value="BELUM">Belum</option>
+                <option value="SELESAI">Selesai</option>
+                <option value="OVERDUE">Overdue</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="flex">
+          <h3>Daftar Tugas</h3>
+          <div class="right flex no-print">
+            <button id="btnExportCSVTasks" class="btn secondary">Export CSV</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:20%">Mata Kuliah</th>
+              <th>Judul</th>
+              <th style="width:14%">Deadline</th>
+              <th style="width:16%">Status</th>
+              <th class="no-print" style="width:90px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="taskTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MATA KULIAH -->
+    <section id="mataKuliah" class="section">
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Kelola Mata Kuliah</h3>
+          <div class="row cols-2">
+            <div>
+              <label for="courseName">Nama Mata Kuliah</label>
+              <input id="courseName" placeholder="Contoh: Pemrograman Web" />
+            </div>
+            <div style="align-self:end;">
+              <button id="btnAddCourse" class="btn good">Tambah Mata Kuliah</button>
+            </div>
+          </div>
+          <div class="muted small" style="margin-top:6px;">Gunakan mata kuliah yang konsisten agar rekap rapi.</div>
+        </div>
+        <div class="card">
+          <h3>Daftar Mata Kuliah</h3>
+          <table>
+            <thead>
+              <tr><th>Nama</th><th class="no-print" style="width:90px;">Aksi</th></tr>
+            </thead>
+            <tbody id="courseTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer class="muted small" style="margin:24px 0;">
+      Tips: Gunakan <span class="kbd">Alt+S</span> untuk simpan absensi cepat. Lakukan Export JSON/CSV secara berkala untuk backup.
+    </footer>
+  </div>
+
+  <script>
+    // === Storage Helpers ===
+    const LS_KEYS = {
+      courses: 'ct_courses',
+      attendance: 'ct_attendance',
+      tasks: 'ct_tasks'
+    };
+
+    const readLS = (key) => JSON.parse(localStorage.getItem(key) || '[]');
+    const writeLS = (key, data) => localStorage.setItem(key, JSON.stringify(data));
+
+    const uid = (p='id') => `${p}_${Math.random().toString(36).slice(2,7)}${Date.now().toString(36)}`;
+
+    const fmtDate = (dStr) => {
+      if(!dStr) return '';
+      const d = new Date(dStr + (dStr.length===10?'T00:00:00':'') );
+      if(Number.isNaN(d.getTime())) return dStr;
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    };
+
+    const todayStr = () => new Date().toISOString().slice(0,10);
+
+    // === DOM ===
+    const qs = (s, el=document) => el.querySelector(s);
+    const qsa = (s, el=document) => Array.from(el.querySelectorAll(s));
+
+    // === Tabs ===
+    qsa('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+      qsa('.tab-btn').forEach(b => b.classList.remove('active'));
+      qsa('.section').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      qs('#' + btn.dataset.tab).classList.add('active');
+    }));
+
+    // === Data State ===
+    let COURSES = readLS(LS_KEYS.courses);
+    let ATT = readLS(LS_KEYS.attendance);
+    let TASKS = readLS(LS_KEYS.tasks);
+
+    // === Courses ===
+    const courseOptionsHTML = () => COURSES.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+
+    function renderCourseSelects(){
+      ['attCourse','attFilterCourse','taskCourse','taskFilterCourse'].forEach(id => {
+        const el = qs('#'+id);
+        if(!el) return;
+        const prev = el.value;
+        el.innerHTML = `<option value="ALL">Semua</option>` + courseOptionsHTML();
+        if(id==='attCourse' || id==='taskCourse'){
+          el.innerHTML = courseOptionsHTML();
+        }
+        if(prev) el.value = prev;
+      });
+    }
+
+    function renderCourseTable(){
+      const tbody = qs('#courseTable');
+      tbody.innerHTML = COURSES.map(c => `
+        <tr>
+          <td>${escapeHtml(c.name)}</td>
+          <td class="no-print">
+            <button class="btn secondary" data-del-course="${c.id}">Hapus</button>
+          </td>
+        </tr>
+      `).join('');
+      qsa('[data-del-course]').forEach(b => b.addEventListener('click', () => {
+        const id = b.getAttribute('data-del-course');
+        if(confirm('Hapus mata kuliah ini? Data absensi/tugas tetap ada tetapi sebaiknya dirapikan.')){
+          COURSES = COURSES.filter(c => c.id!==id);
+          writeLS(LS_KEYS.courses, COURSES);
+          renderAll();
+        }
+      }));
+    }
+
+    qs('#btnAddCourse').addEventListener('click', () => {
+      const name = qs('#courseName').value.trim();
+      if(!name) return alert('Nama mata kuliah tidak boleh kosong.');
+      const exists = COURSES.some(c => c.name.toLowerCase()===name.toLowerCase());
+      if(exists) return alert('Mata kuliah sudah ada.');
+      COURSES.push({ id: uid('mk'), name });
+      writeLS(LS_KEYS.courses, COURSES);
+      qs('#courseName').value = '';
+      renderAll();
+    });
+
+    // === Attendance ===
+    function addOrUpdateAttendance(entry){
+      // Check duplicate (same courseId + date)
+      const idx = ATT.findIndex(a => a.courseId===entry.courseId && a.date===entry.date);
+      if(idx>=0){
+        if(confirm('Entri untuk MK & tanggal ini sudah ada. Update?')){
+          ATT[idx] = { ...ATT[idx], ...entry };
+        } else { return; }
+      } else {
+        ATT.push(entry);
+      }
+      writeLS(LS_KEYS.attendance, ATT);
+      renderAttendance();
+    }
+
+    function renderAttendance(){
+      // Filters
+      const fCourse = qs('#attFilterCourse').value;
+      const fMonth = qs('#attFilterRange').value; // YYYY-MM
+      let rows = ATT.slice();
+      if(fCourse && fCourse!=='ALL') rows = rows.filter(r => r.courseId===fCourse);
+      if(fMonth){ rows = rows.filter(r => r.date && r.date.startsWith(fMonth)); }
+
+      // Rekap
+      const total = rows.length;
+      const hadir = rows.filter(r => r.status==='HADIR').length;
+      const kosong = rows.filter(r => r.status==='KOSONG').length;
+      const th = rows.filter(r => r.status==='TIDAK_HADIR').length;
+      const efektif = Math.max(0, total - kosong);
+      const percent = efektif>0 ? Math.round((hadir/efektif)*100) : 0;
+      qs('#attTotal').textContent = total;
+      qs('#attHadir').textContent = hadir;
+      qs('#attKosong').textContent = kosong;
+      qs('#attTH').textContent = th;
+      qs('#attEfektif').textContent = efektif;
+      qs('#attPercent').textContent = percent + '%';
+
+      // Table
+      const tbody = qs('#attTable');
+      const mapCourse = Object.fromEntries(COURSES.map(c => [c.id, c.name]));
+      rows.sort((a,b)=> (a.date>b.date? -1:1));
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${escapeHtml(mapCourse[r.courseId]||'-')}</td>
+          <td>${fmtDate(r.date)}</td>
+          <td><span class="status ${r.status}">${r.status.replace('_',' ')}</span></td>
+          <td>${escapeHtml(r.note||'')}</td>
+          <td class="no-print">
+            <button class="btn secondary" data-edit-att="${r.id}">Edit</button>
+            <button class="btn secondary" data-del-att="${r.id}">Hapus</button>
+          </td>
+        </tr>
+      `).join('');
+
+      qsa('[data-del-att]').forEach(b => b.addEventListener('click', () => {
+        const id = b.getAttribute('data-del-att');
+        if(confirm('Hapus entri absensi ini?')){
+          ATT = ATT.filter(x => x.id!==id);
+          writeLS(LS_KEYS.attendance, ATT);
+          renderAttendance();
+        }
+      }));
+
+      qsa('[data-edit-att]').forEach(b => b.addEventListener('click', () => {
+        const id = b.getAttribute('data-edit-att');
+        const e = ATT.find(x => x.id===id);
+        if(!e) return;
+        qs('#attCourse').value = e.courseId;
+        qs('#attDate').value = e.date;
+        qs('#attStatus').value = e.status;
+        qs('#attNote').value = e.note||'';
+        window.scrollTo({ top:0, behavior:'smooth' });
+      }));
+    }
+
+    qs('#btnAddAttendance').addEventListener('click', () => {
+      const courseId = qs('#attCourse').value;
+      const date = qs('#attDate').value;
+      const status = qs('#attStatus').value;
+      const note = qs('#attNote').value.trim();
+      if(!courseId) return alert('Pilih mata kuliah.');
+      if(!date) return alert('Isi tanggal.');
+      addOrUpdateAttendance({ id: uid('att'), courseId, date, status, note });
+      // keep values except note
+      qs('#attNote').value='';
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if(e.altKey && (e.key==='s' || e.key==='S')){
+        e.preventDefault();
+        qs('#btnAddAttendance').click();
+      }
+    });
+
+    qs('#attFilterCourse').addEventListener('change', renderAttendance);
+    qs('#attFilterRange').addEventListener('change', renderAttendance);
+
+    // === Tasks ===
+    function renderTasks(){
+      const mapCourse = Object.fromEntries(COURSES.map(c => [c.id, c.name]));
+      const fCourse = qs('#taskFilterCourse').value;
+      const fStatus = qs('#taskFilterStatus').value;
+
+      let rows = TASKS.slice();
+      if(fCourse && fCourse!=='ALL') rows = rows.filter(r => r.courseId===fCourse);
+
+      // derive overdue
+      const now = new Date().toISOString().slice(0,10);
+      rows = rows.map(r => ({
+        ...r,
+        overdue: r.status==='BELUM' && r.deadline && r.deadline < now
+      }));
+
+      if(fStatus==='BELUM') rows = rows.filter(r => r.status==='BELUM');
+      if(fStatus==='SELESAI') rows = rows.filter(r => r.status==='SELESAI');
+      if(fStatus==='OVERDUE') rows = rows.filter(r => r.overdue);
+
+      rows.sort((a,b)=> (a.deadline||'9999-12-31').localeCompare(b.deadline||'9999-12-31'));
+
+      // rekap
+      const total = rows.length;
+      const done = rows.filter(r => r.status==='SELESAI').length;
+      const open = rows.filter(r => r.status==='BELUM').length;
+      const overdue = rows.filter(r => r.overdue).length;
+      qs('#tTotal').textContent = total;
+      qs('#tDone').textContent = done;
+      qs('#tOpen').textContent = open;
+      qs('#tOverdue').textContent = overdue;
+
+      // table
+      const tbody = qs('#taskTable');
+      tbody.innerHTML = rows.map(r => {
+        const hx = daysUntil(r.deadline);
+        const extra = r.status==='BELUM' ? (r.overdue ? `<span class="chip bad overdue">Overdue</span>` : (hx>=0? `<span class="chip">H-${hx}</span>`: '')) : '';
+        return `
+          <tr>
+            <td>${escapeHtml(mapCourse[r.courseId]||'-')}</td>
+            <td>${escapeHtml(r.title||'')}</td>
+            <td>${fmtDate(r.deadline)}</td>
+            <td>
+              <span class="status ${r.status==='BELUM'?'TIDAK_HADIR':'HADIR'}">${r.status}</span>
+              ${extra}
+            </td>
+            <td class="no-print">
+              <button class="btn secondary" data-toggle-task="${r.id}">${r.status==='BELUM'?'Selesai':'Belum'}</button>
+              <button class="btn secondary" data-del-task="${r.id}">Hapus</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      qsa('[data-del-task]').forEach(b => b.addEventListener('click', () => {
+        const id = b.getAttribute('data-del-task');
+        if(confirm('Hapus tugas ini?')){
+          TASKS = TASKS.filter(x => x.id!==id);
+          writeLS(LS_KEYS.tasks, TASKS);
+          renderTasks();
+        }
+      }));
+
+      qsa('[data-toggle-task]').forEach(b => b.addEventListener('click', () => {
+        const id = b.getAttribute('data-toggle-task');
+        const idx = TASKS.findIndex(t => t.id===id);
+        if(idx>=0){
+          TASKS[idx].status = TASKS[idx].status==='BELUM' ? 'SELESAI' : 'BELUM';
+          writeLS(LS_KEYS.tasks, TASKS);
+          renderTasks();
+        }
+      }));
+    }
+
+    qs('#btnAddTask').addEventListener('click', () => {
+      const courseId = qs('#taskCourse').value;
+      const title = qs('#taskTitle').value.trim();
+      const deadline = qs('#taskDeadline').value;
+      const status = qs('#taskStatus').value;
+      if(!courseId) return alert('Pilih mata kuliah.');
+      if(!title) return alert('Isi judul tugas.');
+      TASKS.push({ id: uid('task'), courseId, title, deadline, status, createdAt: new Date().toISOString() });
+      writeLS(LS_KEYS.tasks, TASKS);
+      qs('#taskTitle').value='';
+      renderTasks();
+    });
+
+    qs('#taskFilterCourse').addEventListener('change', renderTasks);
+    qs('#taskFilterStatus').addEventListener('change', renderTasks);
+
+    // === Export / Import ===
+    function download(filename, content, type='text/plain'){
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function toCSVAttendance(rows){
+      const mapCourse = Object.fromEntries(COURSES.map(c => [c.id, c.name]));
+      const header = 'id,course_id,course_name,date,status,note\n';
+      const body = rows.map(r => [r.id, r.courseId, quote(mapCourse[r.courseId]||''), r.date, r.status, quote(r.note||'')].join(',')).join('\n');
+      return header + body + '\n';
+    }
+
+    function toCSVTasks(rows){
+      const mapCourse = Object.fromEntries(COURSES.map(c => [c.id, c.name]));
+      const header = 'id,course_id,course_name,title,deadline,status,createdAt\n';
+      const body = rows.map(r => [r.id, r.courseId, quote(mapCourse[r.courseId]||''), quote(r.title||''), r.deadline||'', r.status, r.createdAt||''].join(',')).join('\n');
+      return header + body + '\n';
+    }
+
+    function quote(s){
+      const str = String(s).replaceAll('"','""');
+      return '"'+ str + '"';
+    }
+
+    function exportJSON(){
+      const payload = { courses: COURSES, attendance: ATT, tasks: TASKS };
+      download('campus-tracker-data.json', JSON.stringify(payload, null, 2), 'application/json');
+    }
+
+    function exportCSVAll(){
+      download('attendance.csv', toCSVAttendance(ATT), 'text/csv');
+      download('tasks.csv', toCSVTasks(TASKS), 'text/csv');
+    }
+
+    qs('#btnExportJSON').addEventListener('click', exportJSON);
+    qs('#btnExportCSVAll').addEventListener('click', exportCSVAll);
+    qs('#btnExportCSVAttendance').addEventListener('click', () => download('attendance.csv', toCSVAttendance(ATT), 'text/csv'));
+    qs('#btnExportCSVTasks').addEventListener('click', () => download('tasks.csv', toCSVTasks(TASKS), 'text/csv'));
+
+    // Import JSON/CSV
+    qs('#importFile').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      const text = await file.text();
+      const name = (file.name||'').toLowerCase();
+      try {
+        if(name.endsWith('.json')){
+          const data = JSON.parse(text);
+          if(data.courses && data.attendance && data.tasks){
+            if(!confirm('Import JSON akan menimpa data saat ini. Lanjutkan?')) return;
+            COURSES = data.courses; ATT = data.attendance; TASKS = data.tasks;
+            writeLS(LS_KEYS.courses, COURSES);
+            writeLS(LS_KEYS.attendance, ATT);
+            writeLS(LS_KEYS.tasks, TASKS);
+            renderAll();
+          } else {
+            alert('Format JSON tidak sesuai. Harus memiliki keys: courses, attendance, tasks.');
+          }
+        } else if(name.endsWith('.csv')){
+          // CSV: coba deteksi dari header
+          const header = text.split('\n')[0].trim();
+          if(header.includes('course_name') && header.includes('status') && header.includes('date')){
+            if(!confirm('Import CSV Absensi akan menambah/overwrite berdasarkan (course_id+date). Lanjutkan?')) return;
+            importCSVAttendance(text);
+          } else if(header.includes('title') && header.includes('deadline')){
+            if(!confirm('Import CSV Tugas akan menambah entri baru. Lanjutkan?')) return;
+            importCSVTasks(text);
+          } else {
+            alert('CSV tidak dikenali. Gunakan file attendance.csv atau tasks.csv dari export.');
+          }
+        } else {
+          alert('Ekstensi file tidak didukung. Gunakan .json atau .csv');
+        }
+      } catch(err){
+        console.error(err);
+        alert('Gagal import: ' + err.message);
+      } finally {
+        e.target.value = '';
+      }
+    });
+
+    function importCSVAttendance(csv){
+      const lines = csv.split(/\r?\n/).filter(Boolean);
+      const [head, ...rows] = lines;
+      const idx = indexHeader(head);
+      const newRows = rows.map(line => parseCSVLine(line)).map(cells => ({
+        id: cells[idx.id] || uid('att'),
+        courseId: cells[idx.course_id] || courseIdFromName(cells[idx.course_name]||''),
+        date: cells[idx.date],
+        status: cells[idx.status],
+        note: cells[idx.note] || ''
+      })).filter(r => r.courseId && r.date && r.status);
+
+      // upsert by (courseId+date)
+      newRows.forEach(n => {
+        const pos = ATT.findIndex(a => a.courseId===n.courseId && a.date===n.date);
+        if(pos>=0) ATT[pos] = { ...ATT[pos], ...n }; else ATT.push(n);
+      });
+      writeLS(LS_KEYS.attendance, ATT);
+      renderAttendance();
+    }
+
+    function importCSVTasks(csv){
+      const lines = csv.split(/\r?\n/).filter(Boolean);
+      const [head, ...rows] = lines;
+      const idx = indexHeader(head);
+      const newRows = rows.map(line => parseCSVLine(line)).map(cells => ({
+        id: cells[idx.id] || uid('task'),
+        courseId: cells[idx.course_id] || courseIdFromName(cells[idx.course_name]||''),
+        title: cells[idx.title] || '',
+        deadline: cells[idx.deadline] || '',
+        status: cells[idx.status] || 'BELUM',
+        createdAt: cells[idx.createdAt] || new Date().toISOString()
+      })).filter(r => r.courseId && r.title);
+      TASKS.push(...newRows);
+      writeLS(LS_KEYS.tasks, TASKS);
+      renderTasks();
+    }
+
+    function indexHeader(head){
+      const cols = head.split(',').map(s => s.trim());
+      const map = {};
+      cols.forEach((c, i) => map[c] = i);
+      return new Proxy(map, { get: (t, k) => t[k] ?? -1 });
+    }
+
+    function parseCSVLine(line){
+      // simple CSV parser handling quotes
+      const out = [];
+      let i=0, cur='', inQ=false;
+      while(i<line.length){
+        const ch = line[i];
+        if(inQ){
+          if(ch==='"' && line[i+1]==='"'){ cur+='"'; i+=2; continue; }
+          if(ch==='"'){ inQ=false; i++; continue; }
+          cur+=ch; i++; continue;
+        } else {
+          if(ch==='"'){ inQ=true; i++; continue; }
+          if(ch===','){ out.push(cur); cur=''; i++; continue; }
+          cur+=ch; i++; continue;
+        }
+      }
+      out.push(cur);
+      return out;
+    }
+
+    function courseIdFromName(name){
+      const n = String(name||'').trim();
+      if(!n) return '';
+      let c = COURSES.find(x => x.name.toLowerCase()===n.toLowerCase());
+      if(!c){ c = { id: uid('mk'), name: n }; COURSES.push(c); writeLS(LS_KEYS.courses, COURSES); renderCourseSelects(); renderCourseTable(); }
+      return c.id;
+    }
+
+    // === Utilities ===
+    function daysUntil(dateStr){
+      if(!dateStr) return -1;
+      const d = new Date(dateStr + 'T00:00:00');
+      const t = new Date(); t.setHours(0,0,0,0);
+      return Math.ceil((d - t)/86400000);
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    }
+
+    // === Global Toolbar ===
+    qs('#btnReset').addEventListener('click', () => {
+      if(confirm('Hapus SEMUA data (mata kuliah, absensi, tugas)?')){
+        COURSES = []; ATT = []; TASKS = [];
+        writeLS(LS_KEYS.courses, COURSES);
+        writeLS(LS_KEYS.attendance, ATT);
+        writeLS(LS_KEYS.tasks, TASKS);
+        renderAll();
+      }
+    });
+
+    qs('#btnPrint').addEventListener('click', () => window.print());
+
+    // === Render All ===
+    function renderAll(){
+      renderCourseSelects();
+      renderCourseTable();
+      renderAttendance();
+      renderTasks();
+    }
+
+    $1
+      if(COURSES.length===0){
+        // optional sample
+        // COURSES = [{id: uid('mk'), name:'Pemrograman Web'},{id: uid('mk'), name:'Basis Data'}];
+        // writeLS(LS_KEYS.courses, COURSES);
+      }
+      // defaults
+      qs('#attDate').value = todayStr();
+      // set default semester filters ke semester berjalan
+      const guessSem = (function(){
+        const m = new Date().getMonth()+1; // 1..12
+        return (m>=8 || m<=1) ? 'GANJIL' : 'GENAP';
+      })();
+      const as = qs('#attFilterSemester'); if(as) as.value = guessSem;
+      const ts = qs('#taskFilterSemester'); if(ts) ts.value = guessSem;
+      renderAll();
+    $2
+  </script>
+</body>
+</html>
